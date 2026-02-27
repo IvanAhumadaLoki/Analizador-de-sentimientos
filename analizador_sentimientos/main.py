@@ -1,88 +1,95 @@
 import pandas as pd
 import re
+import matplotlib.pyplot as plt
+import seaborn as sns
 from pysentimiento import create_analyzer
 
 # ==========================================
 # CONFIGURACIÓN INICIAL
 # ==========================================
-# Cargamos el analizador de español (esto puede tardar unos segundos la primera vez)
 print("⏳ Cargando el cerebro de IA (pysentimiento)...")
 analyzer = create_analyzer(task="sentiment", lang="es")
+
+# Configuración estética de los gráficos
+sns.set_theme(style="whitegrid")
 
 # ==========================================
 # FUNCIONES DE PROCESAMIENTO
 # ==========================================
 
 def limpiar_texto(texto):
-    """
-    Limpia el texto: quita caracteres especiales, números y lo pasa a minúsculas.
-    """
     if not isinstance(texto, str):
         return ""
-    
-    # Convertir a minúsculas
     texto = texto.lower()
-    # Eliminar URLs
     texto = re.sub(r'http\S+|www\S+|https\S+', '', texto, flags=re.MULTILINE)
-    # Eliminar caracteres especiales y números (dejamos solo letras y espacios)
     texto = re.sub(r'[^a-záéíóúñ\s]', '', texto)
-    # Eliminar espacios extra
-    texto = texto.strip()
-    return texto
+    return texto.strip()
 
 def clasificar_sentimiento(texto_limpio):
-    """
-    Recibe el texto y devuelve la etiqueta: Positivo, Negativo o Neutral.
-    """
     if not texto_limpio:
-        return "NEUTRAL"
-    
+        return "Neutral"
     resultado = analyzer.predict(texto_limpio)
-    
-    # Mapeamos las etiquetas del modelo a palabras más legibles
-    mapeo = {
-        "POS": "Positivo",
-        "NEG": "Negativo",
-        "NEU": "Neutral"
-    }
+    mapeo = {"POS": "Positivo", "NEG": "Negativo", "NEU": "Neutral"}
     return mapeo.get(resultado.output, "Neutral")
 
 # ==========================================
-# FLUJO PRINCIPAL DEL PROYECTO
+# FASE 3: VISUALIZACIÓN
+# ==========================================
+
+def generar_grafico(df):
+    """
+    Crea un gráfico de barras con los resultados y lo guarda como imagen.
+    """
+    print("📊 Generando gráfico de resultados...")
+    
+    plt.figure(figsize=(10, 6))
+    
+    # Definir colores fijos para coherencia (Verde, Gris, Rojo)
+    colores = {"Positivo": "#2ecc71", "Neutral": "#95a5a6", "Negativo": "#e74c3c"}
+    
+    # Crear el gráfico de barras
+    sns.countplot(x='sentimiento', data=df, palette=colores, hue='sentimiento', legend=False)
+    
+    plt.title('Distribución de Sentimientos de Clientes', fontsize=16)
+    plt.xlabel('Sentimiento', fontsize=12)
+    plt.ylabel('Cantidad de Comentarios', fontsize=12)
+    
+    # Guardar el gráfico como imagen para el reporte futuro
+    plt.savefig("reporte_sentimientos.png")
+    print("✅ Gráfico guardado como 'reporte_sentimientos.png'")
+    
+    # Mostrar el gráfico en una ventana (opcional)
+    # plt.show()
+
+# ==========================================
+# FLUJO PRINCIPAL
 # ==========================================
 
 def ejecutar_analizador():
     archivo_entrada = "datos_clientes.csv"
-    archivo_salida = "datos_analizados.csv"
-
+    
     try:
-        # FASE 1: Carga de datos
-        print(f"📂 Leyendo el archivo: {archivo_entrada}...")
+        # FASE 1: Carga
         df = pd.read_csv(archivo_entrada)
 
-        # FASE 2: Procesamiento y Análisis
-        print("🧹 Limpiando comentarios...")
+        # FASE 2: Análisis
+        print("🧹 Procesando y analizando comentarios...")
         df['comentario_limpio'] = df['comentario'].apply(limpiar_texto)
-
-        print("🧠 Analizando sentimientos (esto puede tardar según el volumen)...")
         df['sentimiento'] = df['comentario_limpio'].apply(clasificar_sentimiento)
 
-        # Guardar resultados
-        df.to_csv(archivo_salida, index=False, encoding='utf-8')
-        
-        # MOSTRAR RESULTADOS EN CONSOLA
-        print("\n" + "="*30)
-        print("✅ PROCESO COMPLETADO CON ÉXITO")
-        print("="*30)
-        print(f"Archivo guardado como: {archivo_salida}")
-        print("\n--- RESUMEN DE RESULTADOS ---")
-        print(df['sentimiento'].value_counts())
-        print("="*30)
+        # FASE 3: Visualización
+        generar_grafico(df)
 
-    except FileNotFoundError:
-        print(f"❌ Error: No se encontró el archivo '{archivo_entrada}'. Asegúrate de correr primero 'generar_datos.py'.")
+        # Guardar CSV final
+        df.to_csv("datos_analizados.csv", index=False, encoding='utf-8')
+        
+        print("\n" + "="*30)
+        print("✅ FASE 3 COMPLETADA")
+        print("="*30)
+        print(df['sentimiento'].value_counts())
+
     except Exception as e:
-        print(f"❌ Ocurrió un error inesperado: {e}")
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     ejecutar_analizador()
